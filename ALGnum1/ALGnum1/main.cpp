@@ -4,6 +4,7 @@
 #include <random>
 #include <climits>
 #include <chrono>  
+#include <iomanip> 
 
 using namespace std;
 
@@ -65,7 +66,6 @@ void generateRandomCosts(int minCost, int maxCost) {
     }
 }
 
-// ТОЧНЫЙ АЛГОРИТМ (Полный перебор)
 TspResult runExactSearch(int mode) {
     auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -137,8 +137,87 @@ TspResult runExactSearch(int mode) {
     return result;
 }
 
+// ЭВРИСТИЧЕСКИЙ АЛГОРИТМ (Ближайший сосед)
+TspResult runHeuristicSearch() {
+    auto startTime = std::chrono::high_resolution_clock::now();
+
+    bool visited[20];
+    for (int i = 0; i < totalCities; i++) visited[i] = false;
+
+    TspResult result;
+    result.totalCost = 0;
+    result.stepsCount = totalCities;
+
+    int current = startCity;
+    result.path[0] = startCity;
+    visited[startCity] = true;
+
+    for (int step = 1; step < totalCities; step++) {
+        int nearestCity = -1;
+        int minEdge = INT_MAX;
+
+        for (int i = 0; i < totalCities; i++) {
+            if (!visited[i] && costMatrix[current][i] < minEdge) {
+                minEdge = costMatrix[current][i];
+                nearestCity = i;
+            }
+        }
+
+        visited[nearestCity] = true;
+        result.path[step] = nearestCity;
+        result.totalCost += minEdge;
+        current = nearestCity;
+    }
+
+    result.totalCost += costMatrix[current][startCity];
+    result.path[totalCities] = startCity;
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed = endTime - startTime;
+    result.durationMs = elapsed.count();
+
+    return result;
+}
+
+void executeTestRound(int dim, int minVal, int maxVal, int roundId) {
+    totalCities = dim;
+    generateRandomCosts(minVal, maxVal);
+
+    TspResult bestExact = runExactSearch(0);
+    TspResult worstExact = runExactSearch(1);
+    TspResult greedyResult = runHeuristicSearch();
+
+    int qualityPercent = 100;
+    if (worstExact.totalCost != bestExact.totalCost) {
+        qualityPercent = (100 * (worstExact.totalCost - greedyResult.totalCost)) / (worstExact.totalCost - bestExact.totalCost);
+    }
+
+    cout << "  Запуск №" << roundId
+        << " | Точный Мин: " << setw(4) << bestExact.totalCost
+        << " (Время: " << fixed << setprecision(4) << bestExact.durationMs << " мс)"
+        << " | Точный Макс: " << setw(4) << worstExact.totalCost
+        << " | Шагов перебора: " << setw(7) << bestExact.stepsCount
+        << " || Эвристика: " << setw(4) << greedyResult.totalCost
+        << " (Время: " << fixed << setprecision(4) << greedyResult.durationMs << " мс)"
+        << " | Качество: " << setw(3) << qualityPercent << "%" << endl;
+}
+
 int main() {
     setlocale(LC_ALL, "Russian");
-    cout << "Точный перебор реализован и готов к тестам." << endl;
+
+    startCity = 0;
+    int testSizes[] = { 4, 6, 8, 10 };
+
+    cout << "=== НАЧАЛО ЭКСПЕРИМЕНТОВ (Разброс цен: 10 - 99) ===" << endl;
+
+    for (int s = 0; s < 4; s++) {
+        int currentSize = testSizes[s];
+        cout << "\nРАЗМЕРНОСТЬ МАТРИЦЫ: " << currentSize << " x " << currentSize << endl;
+
+        for (int run = 1; run <= 4; run++) {
+            executeTestRound(currentSize, 10, 99, run);
+        }
+    }
+
     return 0;
 }

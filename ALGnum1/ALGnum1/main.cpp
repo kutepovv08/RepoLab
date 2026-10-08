@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
+#include <numeric>
 #include <random>
+#include <climits>
+#include <chrono>  
 
 using namespace std;
 
@@ -15,7 +18,6 @@ struct TspResult {
     long long stepsCount;
 };
 
-// Алгоритм Дейкстры для перестановок (строго по слайду лекции)
 bool Deikstra(int P[], int n) {
     int i = n - 2;
     while (i >= 0 && P[i] >= P[i + 1]) {
@@ -46,7 +48,6 @@ bool Deikstra(int P[], int n) {
     return true;
 }
 
-// Заполнение матрицы случайными значениями 
 void generateRandomCosts(int minCost, int maxCost) {
     random_device rd;
     mt19937 gen(rd());
@@ -64,8 +65,80 @@ void generateRandomCosts(int minCost, int maxCost) {
     }
 }
 
+// ТОЧНЫЙ АЛГОРИТМ (Полный перебор)
+TspResult runExactSearch(int mode) {
+    auto startTime = std::chrono::high_resolution_clock::now();
+
+    int cities[20];
+    int count = 0;
+
+    for (int i = 0; i < totalCities; i++) {
+        if (i != startCity) {
+            cities[count] = i;
+            count++;
+        }
+    }
+
+    // сорт пузырьком
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = 0; j < count - i - 1; j++) {
+            if (cities[j] > cities[j + 1]) {
+                int t = cities[j];
+                cities[j] = cities[j + 1];
+                cities[j + 1] = t;
+            }
+        }
+    }
+
+    TspResult result;
+    result.totalCost = (mode == 0) ? INT_MAX : -1;
+    result.stepsCount = 0;
+
+    int bestSubPath[20];
+
+    do {
+        result.stepsCount++;
+
+        int currentCost = 0;
+        int lastCity = startCity;
+
+        for (int i = 0; i < count; i++) {
+            int nextCity = cities[i];
+            currentCost += costMatrix[lastCity][nextCity];
+            lastCity = nextCity;
+        }
+        currentCost += costMatrix[lastCity][startCity];
+
+        if (mode == 0) {
+            if (currentCost < result.totalCost) {
+                result.totalCost = currentCost;
+                for (int i = 0; i < count; i++) bestSubPath[i] = cities[i];
+            }
+        }
+        else {
+            if (currentCost > result.totalCost) {
+                result.totalCost = currentCost;
+                for (int i = 0; i < count; i++) bestSubPath[i] = cities[i];
+            }
+        }
+
+    } while (Deikstra(cities, count));
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> elapsed = endTime - startTime;
+    result.durationMs = elapsed.count();
+
+    result.path[0] = startCity;
+    for (int i = 0; i < count; i++) {
+        result.path[i + 1] = bestSubPath[i];
+    }
+    result.path[count + 1] = startCity;
+
+    return result;
+}
+
 int main() {
     setlocale(LC_ALL, "Russian");
-    cout << "Базовый генератор и структуры готовы." << endl;
+    cout << "Точный перебор реализован и готов к тестам." << endl;
     return 0;
 }
